@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { StepsList } from '../components/StepsList';
 import { FileExplorer } from '../components/FileExplorer';
@@ -12,14 +12,6 @@ import { parseXml } from '../steps';
 import { useWebContainer } from '../hooks/useWebContainer';
 import { Loader } from '../components/Loader';
 
-const MOCK_FILE_CONTENT = `// This is a sample file content
-import React from 'react';
-
-function Component() {
-  return <div>Hello World</div>;
-}
-
-export default Component;`;
 
 export function Builder() {
   const location = useLocation();
@@ -38,65 +30,75 @@ export function Builder() {
   const [files, setFiles] = useState<FileItem[]>([]);
 
   useEffect(() => {
-    let originalFiles = [...files];
-    let updateHappened = false;
-    steps.filter(({status}) => status === "pending").map(step => {
-      updateHappened = true;
-      if (step?.type === StepType.CreateFile) {
-        let parsedPath = step.path?.split("/") ?? []; // ["src", "components", "App.tsx"]
-        let currentFileStructure = [...originalFiles]; // {}
-        let finalAnswerRef = currentFileStructure;
-  
-        let currentFolder = ""
-        while(parsedPath.length) {
-          currentFolder =  `${currentFolder}/${parsedPath[0]}`;
-          let currentFolderName = parsedPath[0];
-          parsedPath = parsedPath.slice(1);
-  
-          if (!parsedPath.length) {
-            // final file
-            let file = currentFileStructure.find(x => x.path === currentFolder)
-            if (!file) {
-              currentFileStructure.push({
-                name: currentFolderName,
-                type: 'file',
-                path: currentFolder,
-                content: step.code
-              })
-            } else {
-              file.content = step.code;
-            }
-          } else {
-            /// in a folder
-            let folder = currentFileStructure.find(x => x.path === currentFolder)
-            if (!folder) {
-              // create the folder
-              currentFileStructure.push({
-                name: currentFolderName,
-                type: 'folder',
-                path: currentFolder,
-                children: []
-              })
-            }
-  
-            currentFileStructure = currentFileStructure.find(x => x.path === currentFolder)!.children!;
-          }
-        }
-        originalFiles = finalAnswerRef;
-      }
-    })
+    const pendingSteps = steps.filter(({status}) => status === "pending");
+    if (pendingSteps.length === 0) return;
 
-    if (updateHappened) {
-      setFiles(originalFiles)
+    setFiles(currentFiles => {
+      let originalFiles = [...currentFiles];
+      let updateHappened = false;
+      
+      pendingSteps.forEach(step => {
+        updateHappened = true;
+        if (step?.type === StepType.CreateFile) {
+          let parsedPath = step.path?.split("/") ?? []; // ["src", "components", "App.tsx"]
+          let currentFileStructure = [...originalFiles]; // {}
+          const finalAnswerRef = currentFileStructure;
+    
+          let currentFolder = ""
+          while(parsedPath.length) {
+            currentFolder =  `${currentFolder}/${parsedPath[0]}`;
+            const currentFolderName = parsedPath[0];
+            parsedPath = parsedPath.slice(1);
+    
+            if (!parsedPath.length) {
+              // final file
+              const file = currentFileStructure.find(x => x.path === currentFolder)
+              if (!file) {
+                currentFileStructure.push({
+                  name: currentFolderName,
+                  type: 'file',
+                  path: currentFolder,
+                  content: step.code
+                })
+              } else {
+                file.content = step.code;
+              }
+            } else {
+              /// in a folder
+              const folder = currentFileStructure.find(x => x.path === currentFolder)
+              if (!folder) {
+                // create the folder
+                currentFileStructure.push({
+                  name: currentFolderName,
+                  type: 'folder',
+                  path: currentFolder,
+                  children: []
+                })
+              }
+    
+              currentFileStructure = currentFileStructure.find(x => x.path === currentFolder)!.children!;
+            }
+          }
+          originalFiles = finalAnswerRef;
+        }
+      })
+
+      if (updateHappened) {
+        console.log('Files updated:', originalFiles);
+        return originalFiles;
+      }
+      return currentFiles;
+    });
+
+    if (pendingSteps.length > 0) {
       setSteps(steps => steps.map((s: Step) => {
         return {
           ...s,
-          status: "completed"
+          status: s.status === "pending" ? "completed" : s.status
         }
       }))
     }
-    console.log('Files updated:', files);
-  }, [steps, files]);
+  }, [steps]);
 
   // Remove the WebContainer mounting effect since Sandpack handles this internally
   // The old useEffect with webcontainer?.mount() is no longer needed
@@ -109,10 +111,11 @@ export function Builder() {
     
     const {prompts, uiPrompts} = response.data;
 
-    setSteps(parseXml(uiPrompts[0]).map((x: Step) => ({
+    const initialSteps = parseXml(uiPrompts[0]).map((x: Step) => ({
       ...x,
-      status: "pending"
-    })));
+      status: "pending" as const
+    }));
+    setSteps(initialSteps);
 
     setLoading(true);
     const stepsResponse = await axios.post(`${BACKEND_URL}/chat`, {
@@ -124,9 +127,11 @@ export function Builder() {
 
     setLoading(false);
 
-    setSteps(s => [...s, ...parseXml(stepsResponse.data.response).map(x => ({
+    // Calculate the next available ID based on existing steps
+    const nextId = Math.max(...initialSteps.map(s => s.id), 0) + 1;
+    setSteps(s => [...s, ...parseXml(stepsResponse.data.response, nextId).map(x => ({
       ...x,
-      status: "pending" as "pending"
+      status: "pending" as const
     }))]);
 
     setLlmMessages([...prompts, prompt].map(content => ({
@@ -139,7 +144,7 @@ export function Builder() {
 
   useEffect(() => {
     init();
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
@@ -169,7 +174,7 @@ export function Builder() {
                   }} className='p-2 w-full'></textarea>
                   <button onClick={async () => {
                     const newMessage = {
-                      role: "user" as "user",
+                      role: "user" as const,
                       content: userPrompt
                     };
 
@@ -185,9 +190,11 @@ export function Builder() {
                       content: stepsResponse.data.response
                     }]);
                     
-                    setSteps(s => [...s, ...parseXml(stepsResponse.data.response).map(x => ({
+                    // Calculate the next available ID based on existing steps
+                    const nextId = Math.max(...steps.map(s => s.id), 0) + 1;
+                    setSteps(s => [...s, ...parseXml(stepsResponse.data.response, nextId).map(x => ({
                       ...x,
-                      status: "pending" as "pending"
+                      status: "pending" as const
                     }))]);
 
                   }} className='bg-purple-400 px-4'>Send</button>

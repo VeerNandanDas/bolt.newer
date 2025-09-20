@@ -1,17 +1,17 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { Sandpack } from "@codesandbox/sandpack-react";
 import { FileItem } from '../types';
 
 interface PreviewFrameProps {
   files: FileItem[];
-  webContainer?: any; // Keep for backward compatibility, but won't be used
+  webContainer?: unknown; // Keep for backward compatibility, but won't be used
 }
 
 export function PreviewFrame({ files }: PreviewFrameProps) {
   // Convert your FileItem[] structure to Sandpack format
   const sandpackFiles = useMemo(() => {
-    const convertFiles = (fileItems: FileItem[], basePath: string = ""): Record<string, any> => {
-      const result: Record<string, any> = {};
+    const convertFiles = (fileItems: FileItem[], basePath: string = ""): Record<string, { code: string }> => {
+      const result: Record<string, { code: string }> = {};
       
       fileItems.forEach(file => {
         const fullPath = basePath ? `${basePath}/${file.name}` : file.name;
@@ -48,11 +48,10 @@ export function PreviewFrame({ files }: PreviewFrameProps) {
         code: JSON.stringify({
           "name": "react-app",
           "version": "1.0.0",
-          "main": "index.js",
+          "main": "src/index.js",
           "dependencies": {
             "react": "^18.0.0",
-            "react-dom": "^18.0.0",
-            "react-scripts": "^5.0.0"
+            "react-dom": "^18.0.0"
           },
           "scripts": {
             "start": "react-scripts start",
@@ -75,6 +74,16 @@ export default function App() {
     </div>
   );
 }`
+      };
+      
+      // Add index.js to mount the App
+      converted['/src/index.js'] = {
+        code: `import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);`
       };
     }
 
@@ -109,13 +118,12 @@ export default function App() {
           wrapContent: true,
           editorHeight: 0, // Hide editor, only show preview
           editorWidthPercentage: 0, // Hide editor completely
+          showRefreshButton: true,
         }}
         customSetup={{
           dependencies: {
             "react": "^18.0.0",
-            "react-dom": "^18.0.0",
-            "@types/react": "^18.0.0",
-            "@types/react-dom": "^18.0.0"
+            "react-dom": "^18.0.0"
           }
         }}
       />
