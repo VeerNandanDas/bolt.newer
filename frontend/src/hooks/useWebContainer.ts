@@ -1,16 +1,20 @@
 import { useEffect, useState } from "react";
-import { WebContainer } from '@webcontainer/api';
 
+// Simple replacement for useWebContainer that returns null
+// since Sandpack doesn't need a container instance
 export function useWebContainer() {
-    const [webcontainer, setWebcontainer] = useState<WebContainer>();
+    const [sandpackReady, setSandpackReady] = useState<boolean>(false);
 
-    async function main() {
-        const webcontainerInstance = await WebContainer.boot();
-        setWebcontainer(webcontainerInstance)
-    }
     useEffect(() => {
-        main();
-    }, [])
+        // Simulate initialization time
+        const timer = setTimeout(() => {
+            setSandpackReady(true);
+        }, 100);
 
-    return webcontainer;
+        return () => clearTimeout(timer);
+    }, []);
+
+    // Return null to maintain compatibility with existing code
+    // The PreviewFrame will ignore this value when using Sandpack
+    return sandpackReady ? {} : null;
 }

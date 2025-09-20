@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@codesandbox/sandpack-react": "^2.20.0"
+  }
+}
