@@ -116,9 +116,9 @@ root.render(<App />);`
           showLineNumbers: false,
           showInlineErrors: true,
           wrapContent: true,
-          editorHeight: 0, // Hide editor, only show preview
-          editorWidthPercentage: 0, // Hide editor completely
           showRefreshButton: true,
+          // Remove the problematic editor options
+          layout: "preview", // This will show only the preview
         }}
         customSetup={{
           dependencies: {

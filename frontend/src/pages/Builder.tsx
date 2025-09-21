@@ -11,6 +11,7 @@ import { BACKEND_URL } from '../config';
 import { parseXml } from '../steps';
 import { useWebContainer } from '../hooks/useWebContainer';
 import { Loader } from '../components/Loader';
+import { IFramePreview } from '../components/IframePreview';
 
 
 export function Builder() {
@@ -23,8 +24,9 @@ export function Builder() {
   const webcontainer = useWebContainer(); // Keep this for compatibility
 
   const [currentStep, setCurrentStep] = useState(1);
-  const [activeTab, setActiveTab] = useState<'code' | 'preview'>('code');
+  const [activeTab, setActiveTab] = useState<'code' | 'preview' | 'iframe'>('code');
   const [selectedFile, setSelectedFile] = useState<FileItem | null>(null);
+  const [previewMode, setPreviewMode] = useState<'webcontainer' | 'iframe'>('webcontainer');
   
   const [steps, setSteps] = useState<Step[]>([]);
   const [files, setFiles] = useState<FileItem[]>([]);
@@ -146,6 +148,42 @@ export function Builder() {
     init();
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Enhanced TabView component to handle iframe tab
+  const EnhancedTabView = ({ activeTab, onTabChange }: { activeTab: string, onTabChange: (tab: 'code' | 'preview' | 'iframe') => void }) => (
+    <div className="flex space-x-1 mb-4 border-b border-gray-700">
+      <button
+        className={`px-4 py-2 text-sm font-medium rounded-t-lg ${
+          activeTab === 'code'
+            ? 'bg-gray-800 text-white border-b-2 border-blue-500'
+            : 'text-gray-400 hover:text-white hover:bg-gray-800'
+        }`}
+        onClick={() => onTabChange('code')}
+      >
+        Code
+      </button>
+      <button
+        className={`px-4 py-2 text-sm font-medium rounded-t-lg ${
+          activeTab === 'preview'
+            ? 'bg-gray-800 text-white border-b-2 border-blue-500'
+            : 'text-gray-400 hover:text-white hover:bg-gray-800'
+        }`}
+        onClick={() => onTabChange('preview')}
+      >
+        Preview (WebContainer)
+      </button>
+      <button
+        className={`px-4 py-2 text-sm font-medium rounded-t-lg ${
+          activeTab === 'iframe'
+            ? 'bg-gray-800 text-white border-b-2 border-blue-500'
+            : 'text-gray-400 hover:text-white hover:bg-gray-800'
+        }`}
+        onClick={() => onTabChange('iframe')}
+      >
+        Preview (IFrame)
+      </button>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
       <header className="bg-gray-800 border-b border-gray-700 px-6 py-4">
@@ -210,12 +248,16 @@ export function Builder() {
               />
             </div>
           <div className="col-span-2 bg-gray-900 rounded-lg shadow-lg p-4 h-[calc(100vh-8rem)]">
-            <TabView activeTab={activeTab} onTabChange={setActiveTab} />
+            <EnhancedTabView activeTab={activeTab} onTabChange={setActiveTab} />
             <div className="h-[calc(100%-4rem)]">
-              {activeTab === 'code' ? (
+              {activeTab === 'code' && (
                 <CodeEditor file={selectedFile} />
-              ) : (
+              )}
+              {activeTab === 'preview' && (
                 <PreviewFrame webContainer={webcontainer} files={files} />
+              )}
+              {activeTab === 'iframe' && (
+                <IFramePreview files={files} />
               )}
             </div>
           </div>
